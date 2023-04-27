@@ -1,21 +1,32 @@
-import { HTMLAttributes, useState } from 'react';
+import { useState } from 'react';
+import { QueryFunction, useInfiniteQuery } from 'react-query';
 
 import capitalize from '../../helpers/capitalize';
 import pad from '../../helpers/pad';
-import { IPokemon } from '../../types';
-import { POKEMON_TYPES } from '../../services/pokemon.service';
+import { IPokemon, IPokemonPage } from '../../types';
+import {
+  POKEMON_TYPES,
+  fetchPokemonPage,
+  reduceResults,
+} from '../../services/pokemon.service';
 
 import Modal from '../Modal';
 import Card from '../Card';
+import { ReactComponent as Cross } from '../../assets/cross.svg';
 
-interface IListProps extends HTMLAttributes<HTMLUListElement> {
-  data: IPokemon[];
-}
-
-export default function List({ data }: IListProps) {
+export default function PokemonList() {
   const [pokemon, setPokemon] = useState<IPokemon>();
   const [open, setOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<string | null>();
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery<IPokemonPage>({
+      queryKey: 'pokemon',
+      queryFn: fetchPokemonPage as unknown as QueryFunction<IPokemonPage>,
+      getNextPageParam: (lastPage) => {
+        return lastPage.next;
+      },
+    });
 
   function filterPokemon(pokemon: IPokemon[]) {
     if (filter) {
@@ -27,7 +38,7 @@ export default function List({ data }: IListProps) {
 
   return (
     <>
-      <ul className="flex flex-wrap justify-center">
+      <ul className="w-full flex flex-wrap justify-center">
         {Object.keys(POKEMON_TYPES).map((type) => {
           const { color, icon: Icon } = POKEMON_TYPES[type];
 
@@ -48,32 +59,51 @@ export default function List({ data }: IListProps) {
           );
         })}
       </ul>
-      <ul className="flex flex-wrap justify-items-center mt-[32px]">
-        {filterPokemon(data)?.map((pokemon) => (
-          <li
-            className="flex basis-full md:basis-1/2 lg:basis-1/3 justify-center mb-4"
-            key={pokemon.name}
-          >
-            <Card
-              key={pokemon.id}
-              pokemon={pokemon}
-              onClick={() => {
-                setPokemon(pokemon);
-                setOpen(true);
-              }}
-            />
-          </li>
-        ))}
+      <ul className="w-full flex flex-wrap justify-items-center mt-[32px]">
+        {data &&
+          filterPokemon(reduceResults(data?.pages as IPokemonPage[]))?.map(
+            (pokemon) => (
+              <li
+                className="flex basis-full md:basis-1/2 lg:basis-1/3 justify-center mb-4"
+                key={pokemon.name}
+              >
+                <Card
+                  key={pokemon.id}
+                  pokemon={pokemon}
+                  onClick={() => {
+                    setPokemon(pokemon);
+                    setOpen(true);
+                  }}
+                />
+              </li>
+            )
+          )}
       </ul>
-
+      {hasNextPage && (
+        <button
+          className="w-1/2 mt-8 p-4 text-white font-bold rounded-md bg-[#dc2626]"
+          type="button"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? 'Loading more...' : 'Load more'}
+        </button>
+      )}
       <Modal open={open} onClose={() => setOpen(false)}>
         {pokemon && (
           <div
-            className="p-12 flex flex-col items-center rounded-2xl"
+            className="p-10 md:p-12 flex flex-col items-center rounded-2xl relative border-[1px] border-slate-300"
             style={{
               backgroundColor: POKEMON_TYPES[pokemon.types[0]].color,
             }}
           >
+            <button type="button" onClick={() => setOpen(false)}>
+              <Cross
+                className="absolute top-3 right-3 md:top-4 md:right-4"
+                fill="#fff"
+                width={24}
+              />
+            </button>
             <div className="bg-white rounded-md border-2 border-slate-300">
               <img
                 className="w-[250px] h-[250px] object-contain"

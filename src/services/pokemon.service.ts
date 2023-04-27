@@ -98,31 +98,38 @@ export const POKEMON_TYPES: {
   },
 };
 
-export async function fetchPokemon({
+export async function fetchPokemon(url: string): Promise<IPokemon> {
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return {
+    id: data.id,
+    name: data.name,
+    sprite: data.sprites.other.dream_world.front_default,
+    types: data.types.map(
+      (type: { slot: number; type: { type: string; name: string } }) =>
+        type.type.name
+    ),
+    attack: data.stats[1].base_stat,
+    defense: data.stats[2].base_stat,
+    hp: data.stats[0].base_stat,
+    SPAttack: data.stats[3].base_stat,
+    SPDefense: data.stats[4].base_stat,
+    speed: data.stats[5].base_stat,
+    weight: data.weight,
+    totalMoves: data.moves.length,
+  };
+}
+
+export async function fetchPokemonPage({
   pageParam = 'https://pokeapi.co/api/v2/pokemon?limit=12',
 }) {
   const res = await fetch(pageParam);
   const data = await res.json();
 
   data.results = await Promise.all(
-    data.results.map(async (result: any) => {
-      const res = await fetch(result.url);
-      const data = await res.json();
-
-      return {
-        id: data.id,
-        name: result.name,
-        sprite: data.sprites.other.dream_world.front_default,
-        types: data.types.map((type: any) => type.type.name),
-        attack: data.stats[1].base_stat,
-        defense: data.stats[2].base_stat,
-        hp: data.stats[0].base_stat,
-        SPAttack: data.stats[3].base_stat,
-        SPDefense: data.stats[4].base_stat,
-        speed: data.stats[5].base_stat,
-        weight: data.weight,
-        totalMoves: data.moves.length,
-      };
+    data.results.map((result: { name: string; url: string }) => {
+      return fetchPokemon(result.url);
     })
   );
 
